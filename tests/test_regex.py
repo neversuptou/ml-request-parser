@@ -36,7 +36,8 @@ def test_render():
 
 def test_empty():
     f = extract("", ner=None)
-    assert all(not v for k, v in f.items() if k != "check")
+    assert all(not v for k, v in f.items() if k not in ("check", "post_kind"))
+    assert f["post_kind"] == "short"
     assert "не найдена позиция" in f["check"]  # пустой пост — повод проверить вручную
     out = render(f)
     assert "Позиция: —" in out

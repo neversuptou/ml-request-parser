@@ -64,8 +64,39 @@ def extract(text: str, ner=_NOT_LOADED) -> dict:
     for f, v in extract_embedded(text).items():
         if not fields.get(f):
             fields[f] = v
+    fields["post_kind"] = post_kind(text)
     fields["check"] = _check_reasons(fields, uncertain, text)
     return fields
+
+
+# наше поле -> колонка Application в tg_application (как у DeepSeek-парсера, FIELDS_DESCRIPTION)
+PROD_FIELDS = {
+    "request_number": "application_number",
+    "project": "project_title",
+    "position": "position",
+    "grade": "level",
+    "experience": "experience",
+    "duration": "project_duration",
+    "rate": "rate",
+    "requirements": "requirements",
+    "tasks": "tasks",
+    "location": "location",
+    "contacts": "contact_details",
+}
+
+
+def to_prod_fields(f: dict) -> dict[str, str | None]:
+    """Поля в формате прода: ключи Application, значения — строка или None (списки через перенос строки,
+    «Будет преимуществом» — блоком в конце требований, как в итоговом шаблоне)."""
+    out = {}
+    for ours, prod in PROD_FIELDS.items():
+        v = f.get(ours)
+        if ours == "requirements" and f.get("nice_to_have"):
+            v = list(v or []) + ["Будет преимуществом:"] + list(f["nice_to_have"])
+        if isinstance(v, list):
+            v = "\n".join(x for x in v if x)
+        out[prod] = str(v).strip() if v not in (None, "") else None
+    return out
 
 
 # "System Analyst 1С senior в телеком (сотовая связь)" -> позиция + проект "телеком (сотовая связь)"
@@ -119,17 +150,30 @@ def _is_role_list(text: str) -> bool:
     return len(roles) >= 4 or (len(roles) >= 2 and bool(_DIGEST_HINT.search(text)))
 
 
-def classify_post(text: str) -> str | None:
-    """Особые посты, которые построчная модель разбирает плохо: 'не вакансия', 'дайджест', 'одна фраза'."""
+POST_KIND_TEXT = {
+    "not_vacancy": "похоже, не вакансия (бенч / предложение специалистов или услуг)",
+    "digest": "дайджест: несколько вакансий в одном посте",
+    "short": "короткий пост без структуры (одна-две фразы)",
+}
+
+
+def post_kind(text: str) -> str | None:
+    """Особые посты, которые построчная модель разбирает плохо: not_vacancy / digest / short / None."""
     head = (text or "")[:600]
     if _NOT_VACANCY.search(head):
-        return "похоже, не вакансия (бенч / предложение специалистов или услуг)"
+        return "not_vacancy"
     if len(_DIGEST_ITEM.findall(text or "")) >= 3 or _is_role_list(text or ""):
-        return "дайджест: несколько вакансий в одном посте"
+        return "digest"
     meaningful = [ln for ln in (text or "").splitlines() if len(re.sub(r"\W", "", ln)) > 3]
     if len(meaningful) <= 3:
-        return "короткий пост без структуры (одна-две фразы)"
+        return "short"
     return None
+
+
+def classify_post(text: str) -> str | None:
+    """Та же классификация, человекочитаемо — для пометки «⚠️ Проверить вручную»."""
+    kind = post_kind(text)
+    return POST_KIND_TEXT[kind] if kind else None
 
 
 def _check_reasons(fields: dict, uncertain: list[str], text: str = "") -> list[str]:

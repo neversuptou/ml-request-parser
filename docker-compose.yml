@@ -1,0 +1,18 @@
+services:
+  request-parser:
+    build: .
+    image: ml-request-parser:latest
+    container_name: ml-request-parser
+    restart: unless-stopped
+    ports:
+      # 8000 на стенде занят ml-hr-rec-service
+      - "${PARSER_PORT:-8010}:8010"
+    environment:
+      LINE_MODEL_PATH: /app/model/lines-rubert   # быстрая модель: /app/model/lines-baseline.joblib
+      SERVICE_VERSION: "1.0.0"
+    volumes:
+      - ./model:/app/model:ro
+    deploy:
+      resources:
+        limits:
+          memory: 2g

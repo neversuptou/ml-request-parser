@@ -1,0 +1,8 @@
+# Обучение, оценка, тесты — поверх рантайма
+-r requirements.txt
+accelerate
+seqeval
+openai
+openpyxl
+httpx
+pytest

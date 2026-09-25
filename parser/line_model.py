@@ -243,7 +243,8 @@ class BertLineModel(LineModel):
 
 
 def load_line_model(path: str | None = None) -> LineModel | None:
-    """Порядок: явный путь; иначе нейросеть (model/lines-rubert), иначе быстрая модель."""
+    """Порядок: явный путь; env LINE_MODEL_PATH; иначе нейросеть (model/lines-rubert), иначе быстрая модель."""
+    path = path or os.environ.get("LINE_MODEL_PATH")
     candidates = [path] if path else [BERT_PATH, DEFAULT_PATH]
     for p in candidates:
         if not p or not os.path.exists(p):

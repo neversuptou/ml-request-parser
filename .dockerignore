@@ -1,0 +1,13 @@
+.git
+.env
+__pycache__/
+*.log
+*.err
+model/
+data/
+tests/
+scripts/
+*.csv
+*.xlsx
+*.jsonl
+resumes_dataset.jsonl
