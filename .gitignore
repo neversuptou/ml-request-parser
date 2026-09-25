@@ -1,5 +1,23 @@
 __pycache__/
 .env
+*.log
+*.err
+
+# веса моделей (сотни МБ — ГБ): обучаются скриптами, хранятся отдельно
 model/
-data/labeled.jsonl
-data/ner_*.jsonl
+
+# Данные с текстами заявок и резюме — там контакты и персональные данные людей
+# (@username, почты, телефоны, ФИО). В git не кладём.
+*.csv
+*.xlsx
+parse_dataset.jsonl
+resumes_dataset.jsonl
+data/*
+!data/raw/
+data/raw/*
+!data/raw/example.txt
+!data/raw/test_30597.txt
+# без текстов постов: только ссылки и метки/вердикты — эталоны для оценки
+!data/labels.json
+!data/review_gold.json
+!data/judge_*.json
