@@ -113,9 +113,38 @@ def extract_regex(text: str) -> dict:
     if not result["position"]:
         result["position"] = _position(lines)
 
+    result["rate"] = _rate(lines) or result["rate"]
     result["experience"] = _experience(lines)
     result["contacts"] = _contacts(lines)
     return result
+
+
+# "Ставка с НДС: 2300", "Ставка (без НДС) - 2000", "Ставка с НДС:" / "2300" на следующей строке.
+# Пометку про НДС из подписи переносим в значение, иначе «2300» теряет смысл.
+_RATE_LABEL = _PREFIX + r"(?:ставк\w*|рейт|rate|бюджет)(?:\s*\(?\s*(с|без)\s+ндс\s*\)?)?"
+_RATE_INLINE = re.compile(_RATE_LABEL + r"\s*[:\-–—]\s*(\S.*)$", re.I)
+_RATE_BARE = re.compile(_RATE_LABEL + r"\s*:?\s*$", re.I)
+
+
+def _rate(lines: list[str]) -> str | None:
+    for i, line in enumerate(lines):
+        m = _RATE_INLINE.match(line)
+        if m:
+            nds, value = m.group(1), _clean(m.group(2))
+        elif not _BULLET.match(line) and (m := _RATE_BARE.match(line)):
+            # пункт списка "- Ставка" — чек-лист для резюме, а не подпись поля
+            nxt = next((l for l in lines[i + 1:i + 3] if l.strip()), "")
+            if not re.search(r"\d|обсужд|открыт|рынок|по\s+рынку|договор", nxt, re.I):
+                continue
+            nds, value = m.group(1), _clean(_BULLET.sub("", nxt, count=1))
+        else:
+            continue
+        if not value:
+            continue
+        if nds and "ндс" not in value.lower():
+            value = f"{value} ({nds.lower()} НДС)"
+        return value
+    return None
 
 
 # стаж: "от 3-х лет", "5+ лет опыта", "3-5+ лет в аналитической роли", "не менее 3-х лет", "от 2–3 лет"
@@ -149,6 +178,11 @@ def _experience(lines: list[str]) -> str | None:
 # "Пауза_ID:10807" (перед ID подчёркивание), "Запрос ASAP 350926" (между словом и номером — пометка)
 _EMB_REQUEST = re.compile(r"(?<![^\W_]|/)(?:id|№|запрос\w*|заявк\w*|вакансии)\s*[:#№]?\s*"
                           r"(?:(?:asap|срочн\w*|горящ\w*)\s+)?(\d{2,8})(?!\d)", re.I)
+# номер в начале заголовка без подписи: "2653 Архитектор Оптимакрос", "#46 Требуется аналитик"
+_HEAD_NUMBER = re.compile(r"^[^\w#]*#?(\d{2,6})\s+(?!(?:лет|год|мес|позиц|кандидат|человек|специалист|чел)\w*)"
+                          r"(?=[A-Za-zА-Яа-яЁё])", re.I)
+# код заявки заказчика в шапке: "HC263993", "AFFN - 1680" (регистр важен — только заглавные)
+_HEAD_CODE = re.compile(r"(?<![\w-])([A-Z]{2,5}\s?-\s?\d{3,8}|[A-Z]{1,4}\d{4,8})(?![\w-])")
 _EMB_GRADE = re.compile(r"(?<!\w)(junior|middle|senior|lead|team\s*lead|тимлид|джуниор|мидл|сеньор|синьор)"
                         r"(\s*\+|\+)?(?!\w)", re.I)
 _EMB_DURATION = re.compile(
@@ -164,6 +198,13 @@ def extract_embedded(text: str) -> dict:
     m = _EMB_REQUEST.search(text)
     if m:
         out["request_number"] = m.group(1)
+    else:
+        head = [l for l in text.splitlines() if l.strip()][:2]
+        for line in head:
+            m = _HEAD_NUMBER.match(line) or _HEAD_CODE.search(line)
+            if m:
+                out["request_number"] = re.sub(r"\s+", " ", m.group(1))
+                break
     grades = []
     for g in _EMB_GRADE.finditer(text[:1500]):  # грейд ищем в шапке, не в тексте требований
         val = re.sub(r"\s+", " ", g.group(0)).strip()

@@ -75,3 +75,18 @@ def test_ner_fills_gaps_only():
     assert f["project"] == "Мосбиржа"
     assert f["tasks"] == ["задача из NER"]
     assert f["request_number"] == "77"
+
+
+def test_rate_with_vat_label():
+    # прод 29.09–07.10: 35% рейтов терялись — подпись «Ставка с НДС», значение часто на следующей строке
+    assert extract("Системный аналитик\nСтавка с НДС:\n2300\nТребования:\n- SQL", ner=None)["rate"] == "2300 (с НДС)"
+    assert extract("Системный аналитик\nСтавка с НДС: 2300", ner=None)["rate"] == "2300 (с НДС)"
+    assert extract("Системный аналитик\nСтавка (без НДС) - 2000", ner=None)["rate"] == "2000 (без НДС)"
+    assert extract("В резюме укажите:\n- ФИО\n- Ставка\n- Город\nJava разработчик", ner=None)["rate"] is None
+
+
+def test_request_number_in_title():
+    assert extract("2653 Архитектор Оптимакрос\nГрейд: Senior", ner=None)["request_number"] == "2653"
+    assert extract("#46 Требуется Системный аналитик\nТребования:\n- SQL", ner=None)["request_number"] == "46"
+    assert extract("Системный аналитик - HC263993\nТребования:\n- SQL", ner=None)["request_number"] == "HC263993"
+    assert extract("3 позиции Java разработчик\nТребования:\n- Java", ner=None)["request_number"] is None
