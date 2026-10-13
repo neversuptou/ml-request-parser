@@ -90,3 +90,14 @@ def test_request_number_in_title():
     assert extract("#46 Требуется Системный аналитик\nТребования:\n- SQL", ner=None)["request_number"] == "46"
     assert extract("Системный аналитик - HC263993\nТребования:\n- SQL", ner=None)["request_number"] == "HC263993"
     assert extract("3 позиции Java разработчик\nТребования:\n- Java", ner=None)["request_number"] is None
+
+
+def test_rate_formats_from_shadow():
+    # прод 07–13.10: рейты, которые модель теряла, а DeepSeek находил
+    rate = lambda t: extract("Java разработчик\n" + t + "\nТребования:\n- Java", ner=None)["rate"]
+    assert rate("Ставка 1600") == "1600"
+    assert rate("Ставка ваша") == "ваша"
+    assert rate("Cтавка: 2 000 ₽/ч") == "2 000 ₽/ч"  # латинская C
+    assert rate("💸ЗП: вилка 150-250 тр") == "вилка 150-250 тр"
+    assert rate("ищу в команду, 350–500к на руки, удалёнка") == "350–500к на руки"
+    assert rate("Опыт бюджетирования и МСФО") is None

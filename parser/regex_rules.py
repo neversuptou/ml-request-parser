@@ -121,14 +121,22 @@ def extract_regex(text: str) -> dict:
 
 # "Ставка с НДС: 2300", "Ставка (без НДС) - 2000", "Ставка с НДС:" / "2300" на следующей строке.
 # Пометку про НДС из подписи переносим в значение, иначе «2300» теряет смысл.
-_RATE_LABEL = _PREFIX + r"(?:ставк\w*|рейт|rate|бюджет)(?:\s*\(?\s*(с|без)\s+ндс\s*\)?)?"
+# «Cтавка» бывает с латинской C; «ЗП: вилка 150-250 тр» — подпись зарплаты.
+_RATE_LABEL = (_PREFIX + r"(?:[сc]тавк\w*|рейт|rate|бюджет|зп|з/п|зарплат\w*|оклад)"
+               r"(?:\s*\(?\s*(с|без)\s+ндс\s*\)?)?")
 _RATE_INLINE = re.compile(_RATE_LABEL + r"\s*[:\-–—]\s*(\S.*)$", re.I)
 _RATE_BARE = re.compile(_RATE_LABEL + r"\s*:?\s*$", re.I)
+# без двоеточия, значение сразу после подписи: «Ставка 1600», «Ставка ваша», «Ставка от 2000»
+_RATE_NOSEP = re.compile(_RATE_LABEL + r"\s+((?:от\s+|до\s+|~\s*)?\d.*|(?:ваша|обсужда\w*|открыт\w*|рыноч\w*|по\s+рынку)\b.*)$",
+                         re.I)
+# зарплата прямо в тексте: «350–500к на руки», «От 500 до 700к на руки»
+_SALARY_IN_TEXT = re.compile(r"(?:от\s+)?\d[\d\s]*(?:\s*(?:[–—-]|до)\s*\d[\d\s]*)?\s*(?:к|тр|т\.р\.|тыс\.?)\s+на\s+руки",
+                             re.I)
 
 
 def _rate(lines: list[str]) -> str | None:
     for i, line in enumerate(lines):
-        m = _RATE_INLINE.match(line)
+        m = _RATE_INLINE.match(line) or _RATE_NOSEP.match(line)
         if m:
             nds, value = m.group(1), _clean(m.group(2))
         elif not _BULLET.match(line) and (m := _RATE_BARE.match(line)):
@@ -144,6 +152,10 @@ def _rate(lines: list[str]) -> str | None:
         if nds and "ндс" not in value.lower():
             value = f"{value} ({nds.lower()} НДС)"
         return value
+    for line in lines:
+        m = _SALARY_IN_TEXT.search(line)
+        if m:
+            return re.sub(r"\s+", " ", m.group(0)).strip()
     return None
 
 
