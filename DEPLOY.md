@@ -6,7 +6,7 @@
 
 ```bash
 # с машины, где обучалась модель
-scp -r model/lines-rubert model/lines-baseline.joblib user@server:/opt/ml-request-parser/model/
+scp -r model/lines-rubert model/lines-baseline.joblib user@server:/opt/model-for-parsing-requests/model/
 ```
 
 На сервере:
