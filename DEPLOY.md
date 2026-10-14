@@ -12,8 +12,8 @@ scp -r model/lines-rubert model/lines-baseline.joblib user@server:/opt/ml-reques
 На сервере:
 
 ```bash
-cd /opt && git clone https://github.com/neversuptou/ml-request-parser.git
-cd ml-request-parser            # model/ уже лежит рядом (шаг выше)
+cd /opt && git clone https://git.evapps.ru/userbot-application/model-for-parsing-requests.git
+cd model-for-parsing-requests            # model/ уже лежит рядом (шаг выше)
 docker compose up -d --build
 curl -s localhost:8010/health   # {"status":"ok","model":"BertLineModel",...}
 ```
