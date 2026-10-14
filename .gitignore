@@ -21,3 +21,4 @@ data/raw/*
 !data/labels.json
 !data/review_gold.json
 !data/judge_*.json
+handoff/
